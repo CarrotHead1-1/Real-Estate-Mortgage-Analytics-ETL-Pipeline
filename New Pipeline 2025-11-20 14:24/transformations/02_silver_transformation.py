@@ -1,5 +1,5 @@
 import dlt 
-from pyspark.sql.functions import to_date, col, current_timestamp, when, count
+from pyspark.sql.functions import to_date, col, current_timestamp, when, count, trim, regexp_replace
 
 @dlt.table(
     name = "silver_dev.default.BoE_Database_Silver",
@@ -19,7 +19,13 @@ def BoE_Database_Silver():
         df.withColumn("Date", to_date("Date", "dd-MM-yyyy"))
         .withColumnRenamed("Monthly_number_of_total_sterling_approvals_for_house_purchase_to_individuals_seasonally_adjusted_______________a______________LPMVTVX","Monthly_Approvals")
         .withColumn("Monthly_Approvals", col("Monthly_Approvals").cast("int"))
-        .select("Date", "Monthly_Approvals")
+        .select("Date", "Monthly_Approvals", "_ingest_file")
+    )
+
+    #add metadata
+    df_clean = (
+        df_clean.withColumn("silver_ingest_timestamp", current_timestamp())
+        .withColumn("silver_source_file", col("_ingest_file"))
     )
 
     return df_clean
@@ -73,6 +79,60 @@ def UKHPI_Data_Silver():
         "Index","AveragePrice","IndexSA","SalesVolume","NewPrice","NewIndex","NewSalesVolume","OldPrice","OldIndex", "OldSalesVolume"
         ])
 
+    #add meta data
+    df = (
+        df.withColumn("silver_ingest_timestamp", current_timestamp())
+        .withColumn("silver_source_file", col("_ingest_file"))
+    )
+
     return df
 
 
+@dlt.table(
+    name = "silver_dev.default.Price_Paid_Data_Silver",
+    table_properties = {"quality": "silver"},
+)
+
+#add expectations and validations
+@dlt.expect("valid_price", "Price IS NOT NULL AND Price >= 0")
+@dlt.expect("valid_date", "DateOfTransaction IS NOT NULL")
+@dlt.expect("valid_postcode", "Postcode IS NOT NULL")
+
+def Price_Paid_Data_Silver():
+    df = dlt.readStream("bronze_dev.default.Price_Paid_Data_Bronze")
+
+    #select the first 16 columns 
+    df = df.select(df.columns[:16] + ["_ingest_file"])
+    
+    #add new column headers
+    df = df.toDF(
+        "TransactionId", "Price", "DateOfTransaction","Postcode","PropertyType","OldNew","Duration","PAON","SAON","Street","Locality","TownCity","District","County","PPD","RecordStatus", "_ingest_file"
+    )
+
+    #cast column types and clean data
+    df_cleaned = (
+        df.withColumn("TransactionId", regexp_replace(col("TransactionId"), "[{}]", ""))
+        .withColumn("Price", col("Price").cast("int"))
+        .withColumn("DateOfTransaction", to_date("DateOfTransaction", "dd-MM-yyyy"))
+        .withColumn("Postcode", trim(col("Postcode")))
+        .withColumn("PAON", trim(col("PAON")))
+        .withColumn("SAON", trim(col("SAON")))
+        .withColumn("Street", trim(col("Street")))
+        .withColumn("Locality", trim(col("Locality")))
+        .withColumn("TownCity", trim(col("TownCity")))
+        .withColumn("District", trim(col("District")))
+        .withColumn("County", trim(col("County")))
+        .withColumn("PPD", trim(col("PPD")))
+        .withColumn("RecordStatus", trim(col("RecordStatus")))
+    )
+
+    #drop duplicates
+    df_cleaned = df_cleaned.dropDuplicates(["TransactionId"])
+
+    #add metadata
+    df_cleaned = (
+        df_cleaned.withColumn("silver_ingest_timestamp", current_timestamp())
+        .withColumn("silver_source_file", col("_ingest_file"))
+    )
+
+    return df_cleaned
