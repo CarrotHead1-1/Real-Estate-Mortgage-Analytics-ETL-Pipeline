@@ -1,21 +1,27 @@
+CREATE OR REFRESH STREAMING LIVE TABLE gold_dev.default.DimDate
+COMMENT "Date Dimension"
+AS
+SELECT 
+    CAST(date_col AS DATE) AS Date,
+    DATE_FORMAT(date_col, "ddMMyyyy") AS DateKey,
+    YEAR(date_col) AS YEAR,
+    MONTH(date_col) AS MONTH,
+    DATE_FORMAT(date_col, "MMM") AS MONTHNAME,
+    DAY(date_col) AS DAY
+FROM (
+    -- UKHPI stream
+    SELECT DISTINCT Date
+    FROM STREAM(silver_dev.default.UKHPI_Data_Silver With Watermark As Date Delay Interval 1 Day)
+    WHERE Date IS NOT NULL
 
--- CREATE OR REFRESH STREAMING LIVE TABLE gold_dev.default.DimDate
--- COMMENT "Date Dimension"
--- AS
--- SELECT 
---     CAST(date_col AS DATE) AS Date,
---     DATE_FORMAT(date_col, "ddMMyyyy") as DateKey,
---     YEAR(date_col) as YEAR,
---     MONTH(date_col) as MONTH,
---     DATE_FORMAT(date_col, "MMM") as MONTHNAME,
---     DAY(date_col) as DAY
--- FROM (
---     SELECT DISTINCT Date FROM silver_dev.default.UKHPI_Data_Silver
---     UNION 
---     SELECT DISTINCT DateOfTransaction FROM silver_dev.default.Price_Paid_Data_Silver
---     UNION 
---     SELECT DISTINCT Date FROM silver_dev.default.BoE_Database_Silver
--- ) d(date_col);
+    UNION
+
+    -- Bank of England stream
+    SELECT DISTINCT Date AS date_col
+    FROM STREAM(silver_dev.default.BoE_Database_Silver)
+    WHERE Date IS NOT NULL
+) d(date_col);
+
 
 -- CREATE OR REFRESH LIVE TABLE gold_dev.default.DimRegion (
 --   RegionId BIGINT GENERATED ALWAYS AS IDENTITY,

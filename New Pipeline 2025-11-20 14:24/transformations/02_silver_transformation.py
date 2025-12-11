@@ -88,51 +88,51 @@ def UKHPI_Data_Silver():
     return df
 
 
-@dlt.table(
-    name = "silver_dev.default.Price_Paid_Data_Silver",
-    table_properties = {"quality": "silver"},
-)
+# @dlt.table(
+#     name = "silver_dev.default.Price_Paid_Data_Silver",
+#     table_properties = {"quality": "silver"},
+# )
 
-#add expectations and validations
-@dlt.expect("valid_price", "Price IS NOT NULL AND Price >= 0")
-@dlt.expect("valid_date", "DateOfTransaction IS NOT NULL")
-@dlt.expect("valid_postcode", "Postcode IS NOT NULL")
+# #add expectations and validations
+# @dlt.expect("valid_price", "Price IS NOT NULL AND Price >= 0")
+# @dlt.expect("valid_date", "DateOfTransaction IS NOT NULL")
+# @dlt.expect("valid_postcode", "Postcode IS NOT NULL")
 
-def Price_Paid_Data_Silver():
-    df = dlt.readStream("bronze_dev.default.Price_Paid_Data_Bronze")
+# def Price_Paid_Data_Silver():
+#     df = dlt.readStream("bronze_dev.default.Price_Paid_Data_Bronze")
 
-    #select the first 16 columns 
-    df = df.select(df.columns[:16] + ["_ingest_file"])
+#     #select the first 16 columns 
+#     df = df.select(df.columns[:16] + ["_ingest_file"])
     
-    #add new column headers
-    df = df.toDF(
-        "TransactionId", "Price", "DateOfTransaction","Postcode","PropertyType","OldNew","Duration","PAON","SAON","Street","Locality","TownCity","District","County","PPD","RecordStatus", "_ingest_file"
-    )
+#     #add new column headers
+#     df = df.toDF(
+#         "TransactionId", "Price", "DateOfTransaction","Postcode","PropertyType","OldNew","Duration","PAON","SAON","Street","Locality","TownCity","District","County","PPD","RecordStatus", "_ingest_file"
+#     )
 
-    #cast column types and clean data
-    df_cleaned = (
-        df.withColumn("TransactionId", regexp_replace(col("TransactionId"), "[{}]", ""))
-        .withColumn("Price", col("Price").cast("int"))
-        .withColumn("DateOfTransaction", to_date("DateOfTransaction", "yyyy-MM-dd"))
-        .withColumn("Postcode", trim(col("Postcode")))
-        .withColumn("PAON", trim(col("PAON")))
-        .withColumn("SAON", trim(col("SAON")))
-        .withColumn("Street", trim(col("Street")))
-        .withColumn("Locality", trim(col("Locality")))
-        .withColumn("TownCity", trim(col("TownCity")))
-        .withColumn("District", trim(col("District")))
-        .withColumn("County", trim(col("County")))
-        .withColumn("PPD", trim(col("PPD")))
-        .withColumn("RecordStatus", trim(col("RecordStatus")))
-    )
+#     #cast column types and clean data
+#     df_cleaned = (
+#         df.withColumn("TransactionId", regexp_replace(col("TransactionId"), "[{}]", ""))
+#         .withColumn("Price", col("Price").cast("int"))
+#         .withColumn("DateOfTransaction", to_date("DateOfTransaction", "yyyy-MM-dd"))
+#         .withColumn("Postcode", trim(col("Postcode")))
+#         .withColumn("PAON", trim(col("PAON")))
+#         .withColumn("SAON", trim(col("SAON")))
+#         .withColumn("Street", trim(col("Street")))
+#         .withColumn("Locality", trim(col("Locality")))
+#         .withColumn("TownCity", trim(col("TownCity")))
+#         .withColumn("District", trim(col("District")))
+#         .withColumn("County", trim(col("County")))
+#         .withColumn("PPD", trim(col("PPD")))
+#         .withColumn("RecordStatus", trim(col("RecordStatus")))
+#     )
 
-    #drop duplicates
-    df_cleaned = df_cleaned.dropDuplicates(["TransactionId"])
+#     #drop duplicates
+#     df_cleaned = df_cleaned.dropDuplicates(["TransactionId"])
 
-    #add metadata
-    df_cleaned = (
-        df_cleaned.withColumn("silver_ingest_timestamp", current_timestamp())
-        .withColumn("silver_source_file", col("_ingest_file"))
-    )
+#     #add metadata
+#     df_cleaned = (
+#         df_cleaned.withColumn("silver_ingest_timestamp", current_timestamp())
+#         .withColumn("silver_source_file", col("_ingest_file"))
+#     )
 
-    return df_cleaned
+#     return df_cleaned
